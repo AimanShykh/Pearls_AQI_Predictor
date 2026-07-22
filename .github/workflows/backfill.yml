@@ -1,0 +1,30 @@
+name: Historical Backfill (run once, manually)
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Days of history to fetch (max 92)"
+        required: false
+        default: "90"
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - name: Run backfill
+        env:
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+          HOPSWORKS_PROJECT: ${{ secrets.HOPSWORKS_PROJECT }}
+        run: python src/backfill.py --days ${{ github.event.inputs.days }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backfill-data
+          path: backfill_data.parquet
