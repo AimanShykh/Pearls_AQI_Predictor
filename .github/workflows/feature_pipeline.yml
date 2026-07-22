@@ -1,0 +1,23 @@
+name: Hourly Feature Pipeline
+
+on:
+  schedule:
+    - cron: "5 * * * *"   # 5 minutes past every hour (UTC)
+  workflow_dispatch: {}     # lets you also trigger it manually from the Actions tab
+
+jobs:
+  run-feature-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - name: Run feature pipeline
+        env:
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+          HOPSWORKS_PROJECT: ${{ secrets.HOPSWORKS_PROJECT }}
+        run: python src/feature_pipeline.py
