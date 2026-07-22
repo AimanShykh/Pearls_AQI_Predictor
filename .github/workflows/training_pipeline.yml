@@ -1,0 +1,28 @@
+name: Daily Training Pipeline
+
+on:
+  schedule:
+    - cron: "30 2 * * *"   # 02:30 UTC every day
+  workflow_dispatch: {}
+
+jobs:
+  run-training-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - name: Run training pipeline
+        env:
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+          HOPSWORKS_PROJECT: ${{ secrets.HOPSWORKS_PROJECT }}
+        run: python src/training_pipeline.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trained-models
+          path: models/
+          retention-days: 14
