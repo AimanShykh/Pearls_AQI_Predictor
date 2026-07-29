@@ -37,8 +37,10 @@ def load_training_data() -> pd.DataFrame:
         fs = project.get_feature_store()
         fg = fs.get_feature_group(name=config.FEATURE_GROUP_NAME, version=config.FEATURE_GROUP_VERSION)
         return fg.read()
-    print("HOPSWORKS_API_KEY not set — reading local backfill_data.parquet instead.")
-    return pd.read_parquet("backfill_data.parquet")
+    # print("HOPSWORKS_API_KEY not set — reading local backfill_data.parquet instead.")
+    # return pd.read_parquet("backfill_data.parquet")
+    print(f"HOPSWORKS_API_KEY not set — reading local file instead: {config.LOCAL_DATA_PATH}")
+    return pd.read_parquet(config.LOCAL_DATA_PATH)
 
 
 def time_based_split(df: pd.DataFrame, test_fraction: float = 0.2):
@@ -100,7 +102,8 @@ def save_model(result: dict):
     """Save the trained model to disk, and to the Hopsworks Model
     Registry if configured (so the dashboard can always fetch the
     latest version)."""
-    model_dir = f"models/aqi_{result['horizon']}h"
+    # model_dir = f"models/aqi_{result['horizon']}h"
+    model_dir = os.path.join(config.LOCAL_MODELS_DIR, f"aqi_{result['horizon']}h")
     os.makedirs(model_dir, exist_ok=True)
     joblib.dump(result["model"], f"{model_dir}/model.joblib")
     with open(f"{model_dir}/metrics.json", "w") as f:
