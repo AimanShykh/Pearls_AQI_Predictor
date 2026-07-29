@@ -1,8 +1,5 @@
 """
 CONFIG — every "knob" for this project lives here, in one place.
-Change the city, and everything else (data fetching, features, models)
-just works for the new location. Nothing else in the codebase should
-contain a hard-coded number.
 """
 import os
 
@@ -14,15 +11,13 @@ LATITUDE = 25.3960
 LONGITUDE = 68.3578
 
 # ----------------------------------------------------------------------
-# 2. DATA SOURCE — Open-Meteo (see README for why we picked this one)
-#    No API key needed. These are just the two base URLs we call.
+# 2. DATA SOURCE — Open-Meteo. No API key needed.
 # ----------------------------------------------------------------------
 AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 
 # ----------------------------------------------------------------------
-# 3. FEATURE STORE — Hopsworks (free tier). This is the only account/
-#    key you actually need to create for this project.
+# 3. FEATURE STORE — Hopsworks (free tier)
 # ----------------------------------------------------------------------
 HOPSWORKS_API_KEY = os.environ.get("HOPSWORKS_API_KEY", "")
 HOPSWORKS_PROJECT = os.environ.get("HOPSWORKS_PROJECT", "aqi_hyderabad_sindh")
@@ -34,14 +29,7 @@ MODEL_NAME = "aqi_forecast_model"
 # ----------------------------------------------------------------------
 # 4. WHAT WE'RE PREDICTING
 # ----------------------------------------------------------------------
-# We train 3 separate models: one that predicts 24 hours ahead, one for
-# 48h, one for 72h. Predicting further ahead is a harder problem, so a
-# specialist model per horizon tends to do better than one model trying
-# to do all three at once.
 FORECAST_HORIZONS_HOURS = [24, 48, 72]
-
-# How many hours back the model is allowed to "look" when building
-# lag/rolling features (see feature_engineering.py).
 LAG_HOURS = [1, 6, 24, 48]
 ROLLING_WINDOWS_HOURS = [6, 24]
 
@@ -56,4 +44,13 @@ AQI_CATEGORIES = [
     (201, 300, "Very Unhealthy", "purple"),
     (301, 500, "Hazardous", "maroon"),
 ]
-ALERT_THRESHOLD = 150  # dashboard shows a red warning at/above this AQI
+ALERT_THRESHOLD = 150
+
+# ----------------------------------------------------------------------
+# 6. LOCAL FILE PATHS — always the same spot, no matter which folder
+#    you run a script from
+# ----------------------------------------------------------------------
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOCAL_DATA_PATH = os.path.join(PROJECT_ROOT, "backfill_data.parquet")
+LOCAL_MODELS_DIR = os.path.join(PROJECT_ROOT, "models")  # dashboard shows a red warning at/above this AQI
+
