@@ -7,7 +7,7 @@ import pandas as pd
 
 import config
 import data
-
+import os
 
 def aqi_category(aqi_value: float):
     for lo, hi, label, color in config.AQI_CATEGORIES:
@@ -25,8 +25,10 @@ def load_model(horizon: int):
         registry = project.get_model_registry()
         model_meta = registry.get_best_model(f"{config.MODEL_NAME}_{horizon}h", "rmse", "min")
         model_dir = model_meta.download()
-        return joblib.load(f"{model_dir}/model.joblib")
+        # return joblib.load(f"{model_dir}/model.joblib")
+        return joblib.load(os.path.join(config.LOCAL_MODELS_DIR, f"aqi_{horizon}h", "model.joblib"))
     return joblib.load(f"models/aqi_{horizon}h/model.joblib")
+
 
 
 def load_latest_features() -> pd.DataFrame:
@@ -37,7 +39,8 @@ def load_latest_features() -> pd.DataFrame:
         fg = fs.get_feature_group(name=config.FEATURE_GROUP_NAME, version=config.FEATURE_GROUP_VERSION)
         df = fg.read()
     else:
-        df = pd.read_parquet("backfill_data.parquet")
+        # df = pd.read_parquet("backfill_data.parquet")
+        df = pd.read_parquet(config.LOCAL_DATA_PATH)
     df["timestamp"] = pd.to_datetime(df["timestamp"])
     return df.sort_values("timestamp")
 
