@@ -40,6 +40,7 @@ def run(days: int):
             event_time="timestamp",
             description=f"Hourly AQI + weather features for {config.CITY_NAME}",
             online_enabled=True,
+            time_travel_format="HUDI",
         )
         fg.insert(training_df, write_options={"wait_for_job": True})
         print(f"Uploaded {len(training_df)} rows into Hopsworks.")
