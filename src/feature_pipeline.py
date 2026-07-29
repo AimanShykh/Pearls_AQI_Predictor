@@ -29,6 +29,7 @@ def get_feature_group():
         event_time="timestamp",
         description=f"Hourly AQI + weather features for {config.CITY_NAME}",
         online_enabled=True,
+        time_travel_format="HUDI",
     )
 
 
