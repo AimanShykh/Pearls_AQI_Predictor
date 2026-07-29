@@ -25,9 +25,10 @@ def run(days: int):
     training_df["timestamp_unix"] = (training_df["timestamp"].astype("int64") // 10**9).astype(int)
 
     # Always keep a local copy — handy for testing without Hopsworks.
-    training_df.to_parquet("backfill_data.parquet", index=False)
-    print("Saved local copy -> backfill_data.parquet")
-
+    # training_df.to_parquet("backfill_data.parquet", index=False)
+    # print("Saved local copy -> backfill_data.parquet")
+    training_df.to_parquet(config.LOCAL_DATA_PATH, index=False)
+    print(f"Saved local copy -> {config.LOCAL_DATA_PATH}")
     if config.HOPSWORKS_API_KEY:
         import hopsworks
         project = hopsworks.login(api_key_value=config.HOPSWORKS_API_KEY, project=config.HOPSWORKS_PROJECT)
