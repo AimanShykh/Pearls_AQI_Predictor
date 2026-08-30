@@ -7,3 +7,5 @@ hopsworks[python]>=3.7.0
 streamlit>=1.32.0
 plotly>=5.20.0
 pyarrow>=14.0.0
+fastapi>=0.110.0
+uvicorn>=0.29.0
