@@ -36,17 +36,17 @@ def fetch_current_conditions() -> dict:
     Get RIGHT NOW's AQI + weather for our city, as one flat dictionary.
     This is what the hourly feature pipeline calls every hour.
     """
-    air = _fetch_air_quality(past_days=0, forecast_days=1)
+    today = pd.Timestamp.utcnow().strftime("%Y-%m-%d")
+    yesterday = (pd.Timestamp.utcnow() - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+
+    air = _fetch_air_quality(start_date=yesterday, end_date=today)
     weather = _fetch_weather(past_days=0, forecast_days=1)
 
-    # Both responses come back as hour-by-hour arrays. We just want the
-    # single row that matches "now" (the closest past hour).
     now = pd.Timestamp.utcnow().floor("h")
     air_row = air[air["timestamp"] == now]
     weather_row = weather[weather["timestamp"] == now]
 
     if air_row.empty or weather_row.empty:
-        # fall back to the latest available hour if "now" isn't in yet
         air_row = air.tail(1)
         weather_row = weather[weather["timestamp"] == air_row["timestamp"].iloc[0]]
 
