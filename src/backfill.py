@@ -42,7 +42,7 @@ def run(days: int):
             online_enabled=True,
             time_travel_format="HUDI",
         )
-        fg.insert(latest_row, write_options={"wait_for_job": True})
+        fg.insert(training_df, write_options={"wait_for_job": False})
         print(f"Uploaded {len(training_df)} rows into Hopsworks.")
     else:
         print("HOPSWORKS_API_KEY not set — skipped upload, local parquet file only.")
