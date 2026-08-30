@@ -15,7 +15,9 @@ import requests
 import numpy as np
 import pandas as pd
 import config
-
+# import os
+# import json
+# from datetime import datetime, timedelta
 
 # ========================================================================
 # PART A — FETCHING RAW DATA FROM OPEN-METEO
@@ -61,28 +63,106 @@ def fetch_forecast_weather() -> pd.DataFrame:
     return _fetch_weather(past_days=0, forecast_days=7)
 
 
+# def fetch_history(days: int) -> pd.DataFrame:
+#     """
+#     Get the last `days` days of AQI + weather, merged into one table.
+#     Used once, at the start, to build a training dataset (see backfill.py).
+#     Open-Meteo allows up to 92 days of "past_days" in a single call.
+#     """
+#     air = _fetch_air_quality(past_days=min(days, 92), forecast_days=1)
+#     weather = _fetch_weather(past_days=min(days, 92), forecast_days=1)
+#     merged = pd.merge(air, weather, on="timestamp", how="inner")
+#     return merged.sort_values("timestamp").reset_index(drop=True)
 def fetch_history(days: int) -> pd.DataFrame:
     """
     Get the last `days` days of AQI + weather, merged into one table.
-    Used once, at the start, to build a training dataset (see backfill.py).
-    Open-Meteo allows up to 92 days of "past_days" in a single call.
+    Open-Meteo allows multi-year ranges via explicit start_date/end_date
+    (unlike the simpler past_days shortcut, which caps at 92 days).
     """
-    air = _fetch_air_quality(past_days=min(days, 92), forecast_days=1)
-    weather = _fetch_weather(past_days=min(days, 92), forecast_days=1)
+    end_date = pd.Timestamp.utcnow().strftime("%Y-%m-%d")
+    start_date = (pd.Timestamp.utcnow() - pd.Timedelta(days=days)).strftime("%Y-%m-%d")
+
+    air = _fetch_air_quality(start_date, end_date)
+    weather = _fetch_weather_archive(start_date, end_date)
     merged = pd.merge(air, weather, on="timestamp", how="inner")
     return merged.sort_values("timestamp").reset_index(drop=True)
 
+def _fetch_weather_archive(start_date: str, end_date: str) -> pd.DataFrame:
+    """Historical weather, further back than the forecast endpoint allows.
+    Uses Open-Meteo's Archive API (ERA5 reanalysis), which supports
+    dates going back to 1940."""
+    params = {
+        "latitude": config.LATITUDE,
+        "longitude": config.LONGITUDE,
+        "hourly": "temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,cloud_cover",
+        "start_date": start_date,
+        "end_date": end_date,
+        "timezone": "UTC",
+    }
+    r = requests.get(config.WEATHER_ARCHIVE_URL, params=params, timeout=60)
+    payload = r.json()
+    if "hourly" not in payload:
+        raise RuntimeError(f"Weather archive request failed: {payload}")
+    data = payload["hourly"]
+    return pd.DataFrame({
+        "timestamp": pd.to_datetime(data["time"], utc=True),
+        "temp": data["temperature_2m"],
+        "humidity": data["relative_humidity_2m"],
+        "pressure": data["surface_pressure"],
+        "wind_speed": data["wind_speed_10m"],
+        "clouds": data["cloud_cover"],
+    })
 
-def _fetch_air_quality(past_days: int, forecast_days: int) -> pd.DataFrame:
+# def _fetch_air_quality(past_days: int, forecast_days: int) -> pd.DataFrame:
+#     params = {
+#         "latitude": config.LATITUDE,
+#         "longitude": config.LONGITUDE,
+#         "hourly": "us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide",
+#         "past_days": past_days,
+#         "forecast_days": forecast_days,
+#         "timezone": "UTC",
+#     }
+#     data = requests.get(config.AIR_QUALITY_URL, params=params, timeout=30).json()["hourly"]
+#     return pd.DataFrame({
+#         "timestamp": pd.to_datetime(data["time"], utc=True),
+#         "aqi": data["us_aqi"],
+#         "pm25": data["pm2_5"],
+#         "pm10": data["pm10"],
+#         "o3": data["ozone"],
+#         "no2": data["nitrogen_dioxide"],
+#         "so2": data["sulphur_dioxide"],
+#         "co": data["carbon_monoxide"],
+#     })
+
+
+# def _fetch_weather(past_days: int, forecast_days: int) -> pd.DataFrame:
+#     params = {
+#         "latitude": config.LATITUDE,
+#         "longitude": config.LONGITUDE,
+#         "hourly": "temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,cloud_cover",
+#         "past_days": past_days,
+#         "forecast_days": forecast_days,
+#         "timezone": "UTC",
+#     }
+#     data = requests.get(config.WEATHER_URL, params=params, timeout=30).json()["hourly"]
+#     return pd.DataFrame({
+#         "timestamp": pd.to_datetime(data["time"], utc=True),
+#         "temp": data["temperature_2m"],
+#         "humidity": data["relative_humidity_2m"],
+#         "pressure": data["surface_pressure"],
+#         "wind_speed": data["wind_speed_10m"],
+#         "clouds": data["cloud_cover"],
+#     })
+def _fetch_air_quality(start_date: str, end_date: str) -> pd.DataFrame:
     params = {
         "latitude": config.LATITUDE,
         "longitude": config.LONGITUDE,
         "hourly": "us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide",
-        "past_days": past_days,
-        "forecast_days": forecast_days,
+        "start_date": start_date,
+        "end_date": end_date,
         "timezone": "UTC",
     }
-    data = requests.get(config.AIR_QUALITY_URL, params=params, timeout=30).json()["hourly"]
+    data = requests.get(config.AIR_QUALITY_URL, params=params, timeout=60).json()["hourly"]
     return pd.DataFrame({
         "timestamp": pd.to_datetime(data["time"], utc=True),
         "aqi": data["us_aqi"],
@@ -95,16 +175,16 @@ def _fetch_air_quality(past_days: int, forecast_days: int) -> pd.DataFrame:
     })
 
 
-def _fetch_weather(past_days: int, forecast_days: int) -> pd.DataFrame:
+def _fetch_weather(start_date: str, end_date: str) -> pd.DataFrame:
     params = {
         "latitude": config.LATITUDE,
         "longitude": config.LONGITUDE,
         "hourly": "temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,cloud_cover",
-        "past_days": past_days,
-        "forecast_days": forecast_days,
+        "start_date": start_date,
+        "end_date": end_date,
         "timezone": "UTC",
     }
-    data = requests.get(config.WEATHER_URL, params=params, timeout=30).json()["hourly"]
+    data = requests.get(config.WEATHER_URL, params=params, timeout=60).json()["hourly"]
     return pd.DataFrame({
         "timestamp": pd.to_datetime(data["time"], utc=True),
         "temp": data["temperature_2m"],
@@ -203,3 +283,4 @@ def feature_columns_present(df: pd.DataFrame) -> list:
     )
     all_cols = RAW_COLUMNS + engineered
     return [c for c in all_cols if c in df.columns]
+
