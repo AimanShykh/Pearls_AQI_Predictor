@@ -88,9 +88,6 @@ def fetch_history(days: int) -> pd.DataFrame:
     return merged.sort_values("timestamp").reset_index(drop=True)
 
 def _fetch_weather_archive(start_date: str, end_date: str) -> pd.DataFrame:
-    """Historical weather, further back than the forecast endpoint allows.
-    Uses Open-Meteo's Archive API (ERA5 reanalysis), which supports
-    dates going back to 1940."""
     params = {
         "latitude": config.LATITUDE,
         "longitude": config.LONGITUDE,
@@ -104,7 +101,7 @@ def _fetch_weather_archive(start_date: str, end_date: str) -> pd.DataFrame:
     if "hourly" not in payload:
         raise RuntimeError(f"Weather archive request failed: {payload}")
     data = payload["hourly"]
-    return pd.DataFrame({
+    df = pd.DataFrame({
         "timestamp": pd.to_datetime(data["time"], utc=True),
         "temp": data["temperature_2m"],
         "humidity": data["relative_humidity_2m"],
@@ -112,6 +109,9 @@ def _fetch_weather_archive(start_date: str, end_date: str) -> pd.DataFrame:
         "wind_speed": data["wind_speed_10m"],
         "clouds": data["cloud_cover"],
     })
+    df["humidity"] = df["humidity"].astype(float)
+    df["clouds"] = df["clouds"].astype(float)
+    return df
 
 # def _fetch_air_quality(past_days: int, forecast_days: int) -> pd.DataFrame:
 #     params = {
