@@ -60,7 +60,7 @@ def run():
     latest_row = engineered.tail(1).copy()
     latest_row["timestamp_unix"] = (latest_row["timestamp"].astype("int64") // 10**9).astype(int)
 
-    fg.insert(latest_row, write_options={"wait_for_job": True})
+    fg.insert(latest_row, write_options={"wait_for_job": False})
     print(f"Saved feature row for {latest_row['timestamp'].iloc[0]} — AQI = {latest_row['aqi'].iloc[0]}")
 
 
