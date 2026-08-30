@@ -53,6 +53,7 @@ def run():
         combined = new_df
 
     combined = combined.drop_duplicates(subset="timestamp").sort_values("timestamp")
+    combined["timestamp"] = pd.to_datetime(combined["timestamp"], utc=True)  # force correct dtype
     engineered = data.build_features(combined)
 
     # We already have every row except the newest one saved — only insert that.
