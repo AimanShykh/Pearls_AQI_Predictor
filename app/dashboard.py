@@ -15,6 +15,9 @@ import plotly.graph_objects as go
 import config
 from inference import predict_next_3_days, load_latest_features
 
+st.write("DEBUG — Hopsworks key set:", bool(config.HOPSWORKS_API_KEY))
+st.write("DEBUG — Hopsworks project:", config.HOPSWORKS_PROJECT)
+
 st.set_page_config(page_title=f"AQI Forecast — {config.CITY_NAME}", page_icon="🌫️", layout="wide")
 st.title(f"🌫️ AQI Forecast — {config.CITY_NAME}")
 st.caption("Data: Open-Meteo (free, no API key). Feature store & models: Hopsworks. "
