@@ -17,18 +17,52 @@ def aqi_category(aqi_value: float):
 
 
 def load_model(horizon: int):
-    """Prefer Hopsworks Model Registry; fall back to a local file so
-    you can test this without setting anything up."""
-    print(f"DEBUG inside inference.py — HOPSWORKS_API_KEY set: {bool(config.HOPSWORKS_API_KEY)}")
+    """
+    Load the trained model.
+
+    If Hopsworks is configured, get the model from the registry.
+    Otherwise, load the locally saved model.
+    """
+
     if config.HOPSWORKS_API_KEY:
+
         import hopsworks
-        project = hopsworks.login(api_key_value=config.HOPSWORKS_API_KEY, project=config.HOPSWORKS_PROJECT)
+
+        project = hopsworks.login(
+            api_key_value=config.HOPSWORKS_API_KEY,
+            project=config.HOPSWORKS_PROJECT
+        )
+
         registry = project.get_model_registry()
-        model_meta = registry.get_best_model(f"{config.MODEL_NAME}_{horizon}h", "rmse", "min")
+
+        model_meta = registry.get_best_model(
+            f"{config.MODEL_NAME}_{horizon}h",
+            "rmse",
+            "min"
+        )
+
         model_dir = model_meta.download()
-        # return joblib.load(f"{model_dir}/model.joblib")
-        return joblib.load(os.path.join(config.LOCAL_MODELS_DIR, f"aqi_{horizon}h", "model.joblib"))
-    return joblib.load(f"models/aqi_{horizon}h/model.joblib")
+
+        # IMPORTANT:
+        # Load the model from the downloaded Hopsworks directory
+        return joblib.load(
+            os.path.join(model_dir, "model.joblib")
+        )
+
+    # Local model
+    model_path = os.path.join(
+        config.LOCAL_MODELS_DIR,
+        f"aqi_{horizon}h",
+        "model.joblib"
+    )
+
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(
+            f"Model for {horizon}h not found at:\n{model_path}\n\n"
+            f"Run training_pipeline.py first."
+        )
+
+    return joblib.load(model_path)
 
 
 
