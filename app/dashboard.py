@@ -381,20 +381,28 @@ st.write(
 
 model_results = []
 
+
 for horizon in config.FORECAST_HORIZONS_HOURS:
 
-    metrics_path = os.path.join(
-        config.LOCAL_MODELS_DIR,
-        f"aqi_{horizon}h",
-        "metrics.json"
+metrics_path = os.path.join(
+    config.LOCAL_MODELS_DIR,
+    f"aqi_{horizon}h",
+    "metrics.json"
+)
+
+if not os.path.exists(metrics_path):
+    st.warning(f"Metrics for {horizon}h model not found.")
+    continue
+
+with open(metrics_path, "r") as f:
+    info = json.load(f)
+
+for model_name, metrics in info["all_metrics"].items():
+    st.write(
+        horizon,
+        model_name,
+        metrics
     )
-
-    if os.path.exists(metrics_path):
-
-        import json
-
-        with open(metrics_path, "r") as f:
-            metrics = json.load(f)
 
         model_results.append({
             "Forecast": f"{horizon} Hours",
