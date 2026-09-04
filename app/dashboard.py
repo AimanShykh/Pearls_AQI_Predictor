@@ -367,6 +367,90 @@ with st.expander("🔍 View Latest Data"):
             f"Could not load latest data: {e}"
         )
 
+# ============================================================
+# MODEL PERFORMANCE
+# ============================================================
+
+st.divider()
+
+st.header("🤖 Model Performance")
+
+st.write(
+    "Comparison of the models evaluated for each AQI forecast horizon."
+)
+
+model_results = []
+
+for horizon in config.FORECAST_HORIZONS_HOURS:
+
+    metrics_path = os.path.join(
+        config.LOCAL_MODELS_DIR,
+        f"aqi_{horizon}h",
+        "metrics.json"
+    )
+
+    if os.path.exists(metrics_path):
+
+        import json
+
+        with open(metrics_path, "r") as f:
+            metrics = json.load(f)
+
+        model_results.append({
+            "Forecast": f"{horizon} Hours",
+            "Best Model": metrics["model_name"],
+            "RMSE": round(metrics["metrics"]["rmse"], 2),
+            "MAE": round(metrics["metrics"]["mae"], 2),
+            "R²": round(metrics["metrics"]["r2"], 3)
+        })
+
+    else:
+
+        st.warning(
+            f"Metrics for {horizon}h model not found."
+        )
+
+
+# Display results
+if model_results:
+
+    model_df = pd.DataFrame(model_results)
+
+    st.dataframe(
+        model_df,
+        use_container_width=True,
+        hide_index=True
+    )
+
+
+    # --------------------------------------------------------
+    # SCORE CHART
+    # --------------------------------------------------------
+
+    st.subheader("📊 Model Scores")
+
+    metric = st.selectbox(
+        "Select evaluation metric",
+        ["RMSE", "MAE", "R²"]
+    )
+
+    fig_model = px.bar(
+        model_df,
+        x="Forecast",
+        y=metric,
+        text=metric,
+        title=f"{metric} by Forecast Horizon"
+    )
+
+    fig_model.update_traces(
+        textposition="outside"
+    )
+
+    st.plotly_chart(
+        fig_model,
+        use_container_width=True
+    )
+
 
 # ============================================================
 # FOOTER
