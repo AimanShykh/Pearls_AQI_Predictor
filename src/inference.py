@@ -19,6 +19,7 @@ def aqi_category(aqi_value: float):
 def load_model(horizon: int):
     """Prefer Hopsworks Model Registry; fall back to a local file so
     you can test this without setting anything up."""
+    print(f"DEBUG inside inference.py — HOPSWORKS_API_KEY set: {bool(config.HOPSWORKS_API_KEY)}")
     if config.HOPSWORKS_API_KEY:
         import hopsworks
         project = hopsworks.login(api_key_value=config.HOPSWORKS_API_KEY, project=config.HOPSWORKS_PROJECT)
