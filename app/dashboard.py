@@ -1,4 +1,4 @@
-```python
+
 import sys
 import os
 
@@ -378,5 +378,3 @@ st.caption(
     "AQI Forecasting System | Open-Meteo + Machine Learning + "
     "Hopsworks + Streamlit"
 )
-```
-
