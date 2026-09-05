@@ -368,7 +368,35 @@ with st.expander("🔍 View Latest Data"):
         )
 
 
+st.divider()
+st.subheader("🔍 Feature Importance (SHAP)")
+try:
+    import shap
+    from inference import load_model
+    from data import feature_columns_present
 
+    horizon_choice = st.selectbox("Explain which horizon?", config.FORECAST_HORIZONS_HOURS, index=0)
+    model = load_model(horizon_choice)
+    hist = load_latest_features().tail(200)  # small sample — keeps SHAP fast
+    cols = feature_columns_present(hist)
+    X = hist[cols].dropna()
+
+    if hasattr(model, "estimators_"):  # Random Forest / XGBoost
+        explainer = shap.TreeExplainer(model)
+    else:  # Ridge
+        explainer = shap.LinearExplainer(model, X)
+    shap_values = explainer.shap_values(X)
+
+    import pandas as pd
+    importance = pd.DataFrame({
+        "feature": cols,
+        "impact": abs(shap_values).mean(axis=0),
+    }).sort_values("impact", ascending=False).head(10)
+
+    st.bar_chart(importance.set_index("feature")["impact"])
+    st.caption(f"Top features driving the +{horizon_choice}h forecast.")
+except Exception as e:
+    st.info(f"SHAP explanations unavailable right now ({e}). Everything else on this page is unaffected.")
 
 # ============================================================
 # FOOTER
