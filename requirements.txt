@@ -9,3 +9,4 @@ plotly>=5.20.0
 pyarrow>=14.0.0
 fastapi>=0.110.0
 uvicorn>=0.29.0
+shap>=0.45.0
