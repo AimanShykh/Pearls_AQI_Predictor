@@ -29,7 +29,7 @@ st.set_page_config(
 # HEADER
 # ============================================================
 
-st.title(f"🌫️ Air Quality Forecast")
+st.title(f"🌫️ AQI Predictor")
 st.subheader(config.CITY_NAME)
 
 st.caption(
@@ -178,7 +178,7 @@ fig.add_trace(
 )
 
 
-# AQI threshold lines
+
 fig.add_hline(
     y=50,
     line_dash="dash",
@@ -369,7 +369,7 @@ with st.expander("🔍 View Latest Data"):
 
 
 st.divider()
-st.subheader("🔍 Feature Importance (SHAP)")
+st.subheader("🔍 Feature Importance")
 try:
     import shap
     from inference import load_model
@@ -377,7 +377,7 @@ try:
 
     horizon_choice = st.selectbox("Explain which horizon?", config.FORECAST_HORIZONS_HOURS, index=0)
     model = load_model(horizon_choice)
-    hist = load_latest_features().tail(200)  # small sample — keeps SHAP fast
+    hist = load_latest_features().tail(200)  
     cols = feature_columns_present(hist)
     X = hist[cols].dropna()
 
@@ -406,5 +406,5 @@ st.divider()
 
 st.caption(
     "AQI Forecasting System | Open-Meteo + Machine Learning + "
-    "Hopsworks + Streamlit"
+    "Hopsworks + Streamlit "
 )
