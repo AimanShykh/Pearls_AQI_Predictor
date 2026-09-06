@@ -1,14 +1,5 @@
 """
-FEATURE PIPELINE — runs once every hour (see .github/workflows/feature_pipeline.yml)
-
-What it does, in plain English:
-  1. Ask Open-Meteo: "what's the AQI and weather right now?"
-  2. Look at the last few days we already saved, so we can compute
-     lag/rolling features correctly (they need real history, not
-     just this one new number).
-  3. Compute the engineered features.
-  4. Save just the newest row into Hopsworks (the older rows are
-     already there from previous hourly runs).
+FEATURE PIPELINE 
 """
 import pandas as pd
 import config
@@ -18,8 +9,7 @@ import hopsworks
 
 
 def get_feature_group():
-    """Connect to Hopsworks and get (or create, on the very first run)
-    the table where we store our hourly feature rows."""
+   
     project = hopsworks.login(api_key_value=config.HOPSWORKS_API_KEY, project=config.HOPSWORKS_PROJECT)
     fs = project.get_feature_store()
     return fs.get_or_create_feature_group(
@@ -56,7 +46,7 @@ def run():
     combined["timestamp"] = pd.to_datetime(combined["timestamp"], utc=True)  # force correct dtype
     engineered = data.build_features(combined)
 
-    # We already have every row except the newest one saved — only insert that.
+    # We already have every row except the newest one saved 
     latest_row = engineered.tail(1).copy()
     latest_row["timestamp_unix"] = (latest_row["timestamp"].astype("int64") // 10**9).astype(int)
 
