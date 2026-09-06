@@ -1,0 +1,33 @@
+{
+  "model_name": "random_forest",
+  "metrics": {
+    "rmse": 10.546590559855966,
+    "mae": 7.661656002644355,
+    "r2": 0.42360280648798265
+  },
+  "feature_columns": [
+    "pm25",
+    "pm10",
+    "o3",
+    "no2",
+    "so2",
+    "co",
+    "temp",
+    "humidity",
+    "pressure",
+    "wind_speed",
+    "clouds",
+    "hour",
+    "day_of_week",
+    "month",
+    "hour_sin",
+    "hour_cos",
+    "aqi_lag_1h",
+    "aqi_lag_6h",
+    "aqi_lag_24h",
+    "aqi_lag_48h",
+    "aqi_avg_6h",
+    "aqi_avg_24h",
+    "aqi_change_rate"
+  ]
+}
