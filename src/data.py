@@ -1,35 +1,13 @@
 """
-DATA.PY — everything about turning raw numbers from Open-Meteo into a
-clean table the model can learn from.
-
-This file has two halves:
   PART A — FETCHING: call Open-Meteo, get raw AQI + weather numbers
   PART B — FEATURE ENGINEERING: turn raw numbers into "clues" (features)
            that help a model predict the future
-
-Why one file instead of many? Because these two steps are tightly
-linked — if you change what you fetch, you usually need to change what
-you engineer. Keeping them together makes that obvious.
 """
 import requests
 import numpy as np
 import pandas as pd
 import config
-# import os
-# import json
-# from datetime import datetime, timedelta
 
-# ========================================================================
-# PART A — FETCHING RAW DATA FROM OPEN-METEO
-# ========================================================================
-#
-# Open-Meteo needs NO API key. You just build a URL with your
-# coordinates and the fields you want, and it hands back JSON.
-#
-# We need two things from it:
-#   1. Air quality  -> gives us the actual AQI number (us_aqi) + pollutants
-#   2. Weather      -> temperature, humidity, wind etc. (AQI depends on
-#                       weather: no wind = pollution doesn't disperse)
 
 def fetch_current_conditions() -> dict:
     """
@@ -42,8 +20,7 @@ def fetch_current_conditions() -> dict:
     air = _fetch_air_quality(yesterday, tomorrow)
     weather = _fetch_weather(yesterday, tomorrow)
 
-    # Both responses come back as hour-by-hour arrays. We just want the
-    # single row that matches "now" (the closest past hour).
+    
     now = pd.Timestamp.utcnow().floor("h")
     air_row = air[air["timestamp"] == now]
     weather_row = weather[weather["timestamp"] == now]
@@ -204,13 +181,7 @@ def _fetch_weather(start_date: str, end_date: str) -> pd.DataFrame:
 # PART B — FEATURE ENGINEERING
 # ========================================================================
 #
-# A model can't just see "AQI = 90 right now" and guess the future. We
-# need to hand it useful clues. Every function below adds one kind of
-# clue as a new column.
 
-# This list is the exact set of columns every model will be trained and
-# predict on. Keeping it in one place means training and prediction can
-# never accidentally use different features (a common, sneaky ML bug).
 RAW_COLUMNS = ["pm25", "pm10", "o3", "no2", "so2", "co",
                "temp", "humidity", "pressure", "wind_speed", "clouds"]
 
@@ -224,18 +195,14 @@ def add_time_features(df: pd.DataFrame) -> pd.DataFrame:
     df["day_of_week"] = ts.dt.dayofweek
     df["month"] = ts.dt.month
 
-    # A plain "hour" number tricks a model into thinking hour 23 and
-    # hour 0 are far apart, when really they're right next to each
-    # other. Sin/cos encoding fixes that by placing hours on a circle.
+    
     df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24)
     df["hour_cos"] = np.cos(2 * np.pi * df["hour"] / 24)
     return df
 
 
 def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Clue: 'what was the AQI N hours ago?' — this is what gives the
-    model memory. Pollution today is strongly related to pollution
-    yesterday, so this is usually the single most useful feature."""
+  
     df = df.copy().sort_values("timestamp").reset_index(drop=True)
     for hours_back in config.LAG_HOURS:
         df[f"aqi_lag_{hours_back}h"] = df["aqi"].shift(hours_back)
@@ -243,8 +210,7 @@ def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Clue: 'what's the AQI trend been recently?' — a rolling average
-    smooths out noisy hour-to-hour spikes and shows the bigger trend."""
+   
     df = df.copy()
     for window in config.ROLLING_WINDOWS_HOURS:
         df[f"aqi_avg_{window}h"] = df["aqi"].rolling(window, min_periods=1).mean()
@@ -254,12 +220,7 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_forecast_targets(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Create the answer key for training: 'what WAS the AQI N hours after
-    this row?'. shift(-N) looks forward N rows instead of backward.
-    Only historical data has these answers (we don't know the future
-    yet!) — that's exactly why we need this for training only.
-    """
+    
     df = df.copy()
     for horizon in config.FORECAST_HORIZONS_HOURS:
         df[f"target_{horizon}h"] = df["aqi"].shift(-horizon)
@@ -267,9 +228,7 @@ def add_forecast_targets(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Run all feature steps in order. Used both for training data and
-    for a live prediction row — same function, so features are always
-    computed identically in both places."""
+    
     df = add_time_features(df)
     df = add_lag_features(df)
     df = add_rolling_features(df)
@@ -277,9 +236,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def feature_columns_present(df: pd.DataFrame) -> list:
-    """The full list of model input columns, filtered to ones that
-    actually exist in `df` (handy since a single live row won't have
-    all lag columns filled in yet)."""
+   
     engineered = (
         ["hour", "day_of_week", "month", "hour_sin", "hour_cos"]
         + [f"aqi_lag_{h}h" for h in config.LAG_HOURS]
