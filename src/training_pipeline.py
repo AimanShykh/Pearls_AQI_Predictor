@@ -1,19 +1,5 @@
 """
-TRAINING PIPELINE — runs once a day (see .github/workflows/training_pipeline.yml)
-
-What it does, in plain English:
-  1. Load all the saved feature rows from Hopsworks.
-  2. For each forecast horizon (24h, 48h, 72h), try two models:
-       - Ridge Regression: a simple straight-line model. Fast, easy to
-         reason about, a good baseline.
-       - Random Forest: hundreds of small decision trees voting
-         together. Usually more accurate, still fairly easy to explain.
-  3. Score both on data the model never saw during training.
-  4. Keep whichever did better, and save it.
-
-We deliberately train separate models per horizon rather than one
-model for all three — 3-days-ahead is a harder problem than
-1-day-ahead, so specialists tend to do better than a generalist.
+TRAINING PIPELINE — runs once a day .
 """
 import os
 import json
