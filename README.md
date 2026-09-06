@@ -86,7 +86,7 @@ On your repo: Settings → Secrets and variables → Actions → New secret
 
 ### 3. Run the one-time backfill
 GitHub → Actions tab → **Historical Backfill (run once, manually)** →
-Run workflow. This gives the model ~90 days of history to learn from.
+Run workflow. This gives the model ~730 days of history to learn from.
 
 ### 4. Let automation take over
 `feature_pipeline.yml` starts running hourly automatically once merged.
@@ -104,7 +104,7 @@ the same 2 secrets in Streamlit's secrets manager. Done.
 pip install -r requirements.txt
 export HOPSWORKS_API_KEY=...  HOPSWORKS_PROJECT=...
 
-python src/backfill.py --days 90     # one-time
+python src/backfill.py --days 730     # one-time
 python src/feature_pipeline.py       # simulate one hourly run
 python src/training_pipeline.py      # train + register models
 python src/inference.py               # print the forecast to console
