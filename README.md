@@ -87,7 +87,7 @@ breakdown of how often AQI crosses into unhealthy territory.
 
 ## Modeling
 
-Three candidate models are trained **separately per forecast
+Two candidate models are trained **separately per forecast
 horizon**, avoiding compounding error from recursive multi-step
 forecasting:
 
