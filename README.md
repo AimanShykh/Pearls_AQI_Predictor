@@ -1,102 +1,133 @@
-# AQI Forecast — Hyderabad, Sindh, Pakistan 
+# AQI Forecast — Hyderabad, Sindh, Pakistan 🌫️
 
-Predicts Air Quality Index 24h / 48h / 72h ahead, running entirely on
-free, serverless infrastructure — no server you manage, no API keys
-except one (for storage).
+**Live dashboard:** [pearlsaqipredictor123.streamlit.app](https://pearlsaqipredictor123.streamlit.app/)
 
+A serverless, end-to-end machine learning pipeline that forecasts Air
+Quality Index 24h / 48h / 72h ahead for Hyderabad, Sindh — no server
+to manage, only one account to create (Hopsworks).
 
-This project uses **one data source for everything: [Open-Meteo](https://open-meteo.com)**.
-It's free, needs **no signup or API key**, already computes the AQI
-number , and gives
-current + forecast + up-to-2 years-history in the same two endpoints.
-That cuts real complexity out of the code, not just the explanation.
-
-The only account you truly need to create is **Hopsworks** ,
-which acts as the shared storage between the hourly data-collector and
-the dashboard
-
-## How it works 
+## How it works
 
 ```
 Open-Meteo API  →  Feature Pipeline  →  Hopsworks Feature Store
-                   (runs every hour,      (a shared, growing table
-                     GitHub Actions)        of AQI + weather history)
+                    (runs hourly,          (growing table of AQI +
+                     GitHub Actions)        weather history)
                                                     │
                                                     ▼
                                           Training Pipeline
-                                          (runs once a day,
-                                           GitHub Actions)
+                                          (runs daily, GitHub Actions)
+                                          Ridge · Random Forest · XGBoost
+                                          → best model per horizon kept
                                                     │
                                                     ▼
                                           Hopsworks Model Registry
-                                          (stores the trained models)
                                                     │
                                                     ▼
                                           Streamlit Dashboard
-                                          (loads the latest model
-                                           + features, shows forecast)
+                                          forecast · alerts · EDA · SHAP
 ```
 
-1. **Every hour**, a small script asks Open-Meteo "what's the AQI and
-   weather right now?", turns that into model-ready features, and
-   saves it to Hopsworks.
-2. **Once a day**, another script pulls all the saved history, trains
-   two candidate models (Ridge Regression, Random Forest) for each of
-   the 3 forecast horizons, keeps whichever did better, and saves it.
-3. **Whenever you open the dashboard**, it grabs the latest saved
-   features and the latest saved models, and shows you the forecast.
+1. **Every hour** — a script fetches current AQI + weather from
+   Open-Meteo, engineers features, and appends one row to Hopsworks.
+2. **Once a day** — a script pulls the full feature history, trains
+   and compares three models per forecast horizon (24h/48h/72h), and
+   registers whichever scores lowest RMSE.
+3. **Whenever the dashboard is opened** — it loads the latest features
+   and latest registered models and computes a live 3-day forecast.
 
-Nothing here needs a server running 24/7 — GitHub Actions wakes up,
-runs the script, and goes back to sleep. 
+Nothing runs continuously; GitHub Actions wakes up on a schedule, runs
+the script, and shuts down.
 
+## Data source
+
+Everything comes from **[Open-Meteo](https://open-meteo.com)**  It also returns `us_aqi`, a pre-computed
+AQI on the standard 0–500 scale, so no manual pollutant-to-AQI
+conversion is needed.
 
 ## Repo layout
 
 ```
 ├── src/
-│   ├── config.py             # city coordinates, thresholds, settings
-│   ├── data.py                # fetch from Open-Meteo + all feature engineering
+│   ├── config.py             # city coordinates, thresholds, Hopsworks settings
+│   ├── data.py                # Open-Meteo fetching + all feature engineering
 │   ├── feature_pipeline.py    # HOURLY job
-│   ├── backfill.py            # ONE-TIME job (run manually at setup)
-│   ├── training_pipeline.py   # DAILY job
-│   └── inference.py           # loads model+features, produces the forecast
+│   ├── backfill.py            # ONE-TIME job — 2-year historical backfill
+│   ├── training_pipeline.py   # DAILY job — trains & compares 3 models
+│   └── inference.py           # loads latest model + features, builds forecast
 ├── app/
-│   └── dashboard.py            # Streamlit dashboard
+│   └── dashboard.py            # Streamlit dashboard (forecast, EDA, alerts, SHAP)
+├── models/                    
 ├── .github/workflows/
-│   ├── feature_pipeline.yml    # cron: every hour
+│   ├── feature_pipeline.yml    # cron: hourly
 │   ├── training_pipeline.yml   # cron: daily
-│   └── backfill.yml            # manual trigger, run once
-└── requirements.txt
+│   └── backfill.yml            # manual trigger, run once at setup
+├── .devcontainer/               # reproducible dev environment config
+├── aqi_eda.ipynb                # exploratory data analysis on 2 years of data
+├── data.csv                      # sample/backfilled historical dataset
+├── requirements.txt
+└── runtime.txt                   # pins Python 3.11 (required by Hopsworks client)
 ```
+
+## Feature engineering
+
+Raw hourly data (`pm25`, `pm10`, `o3`, `no2`, `so2`, `co`, `temp`,
+`humidity`, `pressure`, `wind_speed`, `clouds`) is transformed into
+~29 model-ready columns in `src/data.py`:
+
+| Group | Examples | Why |
+|---|---|---|
+| Temporal | `hour`, `day_of_week`, `month`, `hour_sin`/`hour_cos` | Captures daily traffic and seasonal pollution cycles |
+| Lag | `aqi_lag_1h/6h/24h/48h` | Gives the model memory of recent trends — the strongest single predictor |
+| Rolling/trend | `aqi_avg_6h/24h`, `aqi_change_rate` | Smooths noise, captures direction and speed of change |
+| Targets (training only) | `target_24h/48h/72h` | Future AQI values the model learns to predict |
+
+`aqi_eda.ipynb` explores this dataset in depth — seasonality, daily
+rhythm, correlations between pollutants and weather, and a category
+breakdown of how often AQI crosses into unhealthy territory.
+
+## Modeling
+
+Three candidate models are trained **separately per forecast
+horizon**, avoiding compounding error from recursive multi-step
+forecasting:
+
+- **Ridge Regression** — simple, fast linear baseline
+- **Random Forest** — ensemble of trees, captures non-linear patterns
+
+Evaluation uses a **time-based 80/20 split** (train on the older 80%,
+test on the newer 20% — never shuffled, since this is time-series
+data), scored with RMSE, MAE, and R². The lowest-RMSE candidate per
+horizon is registered to the Hopsworks Model Registry.
+
+## Feature Store
+
+Features persist in **Hopsworks** rather than a flat file so that (1)
+identical feature-computation code runs at both training and
+inference time, preventing training/serving skew, and (2) the hourly
+pipeline, daily trainer, and dashboard can all read/write the same
+growing dataset concurrently.
+
+## Dashboard
+
+Deployed on Streamlit Community Cloud (`runtime.txt` pins Python 3.11
+to avoid a Hopsworks dependency conflict on newer Python versions).
+
+- Current AQI + 24h/48h/72h forecast cards
+- Forecast trend chart with AQI category bands
+- Hazardous-AQI alert banner (AQI ≥ 150)
+- Recent 14-day history charts
+- SHAP-based feature importance, wrapped defensively so a library
+  hiccup shows a graceful notice instead of breaking the page
 
 
 ## Setup
 
-### 1. Create a free Hopsworks account
-Go to [hopsworks.ai](https://www.hopsworks.ai/), sign up, create a
-project (e.g. `aqi_hyderabad_sindh`), then generate an API key under
-Account Settings → API Keys. That's the only account you need.
-
-### 2. Add 2 GitHub Secrets
-On your repo: Settings → Secrets and variables → Actions → New secret
-- `HOPSWORKS_API_KEY`
-- `HOPSWORKS_PROJECT`
-
-
-
-### 3. Run the one-time backfill
-GitHub → Actions tab → **Historical Backfill (run once, manually)** →
-Run workflow. This gives the model ~730 days of history to learn from.
-
-### 4. Let automation take over
-`feature_pipeline.yml` starts running hourly automatically once merged.
-`training_pipeline.yml` runs once a day, trains both models per
-horizon, and keeps the better one.
-
-### 5. Deploy the dashboard
-Push to GitHub → go to [share.streamlit.io](https://share.streamlit.io)
-→ "New app" → point at this repo, main file `app/dashboard.py` → add
-the same 2 secrets in Streamlit's secrets manager. Done.
+1. Create a free [Hopsworks](https://www.hopsworks.ai/) account + project
+2. Generate an API key (Account Settings → API Keys)
+3. Add GitHub Secrets: `HOPSWORKS_API_KEY`, `HOPSWORKS_PROJECT`
+4. Run **Historical Backfill** once from the Actions tab (`days: 730`)
+5. `feature_pipeline.yml` and `training_pipeline.yml` then run automatically, hourly and daily
+6. Deploy `app/dashboard.py` on Streamlit Community Cloud with the same two secrets
 
 ## Local development
 
@@ -105,22 +136,8 @@ pip install -r requirements.txt
 export HOPSWORKS_API_KEY=...  HOPSWORKS_PROJECT=...
 
 python src/backfill.py --days 730     # one-time
-python src/feature_pipeline.py       # simulate one hourly run
-python src/training_pipeline.py      # train + register models
-python src/inference.py               # print the forecast to console
+python src/feature_pipeline.py        # simulate one hourly run
+python src/training_pipeline.py       # train + register models
+python src/inference.py               # print forecast to console
 streamlit run app/dashboard.py        # launch dashboard locally
 ```
-
-
-## Modeling notes
-- **Separate model per horizon** (24h/48h/72h) instead of one model
-  guessing all three, to avoid compounding error on longer horizons.
-- **Two candidate models**: Ridge Regression (simple, fast baseline)
-  and Random Forest (usually more accurate, still explainable). The
-  training script prints both models' scores so you can see the
-  comparison yourself.
-- **Time-based train/test split** — never shuffle time series data.
-  We train on the older 80% and test on the newer 20%, mimicking the
-  real task of predicting the future from the past.
-- **Metrics**: RMSE (average error), MAE
-  (average error), R² (how much variation the model explains).
